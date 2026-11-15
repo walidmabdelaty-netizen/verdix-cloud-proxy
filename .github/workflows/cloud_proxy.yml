@@ -7,26 +7,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
-    - name: Install Proxy and Tunnel Tools
+    - name: Install and Configure Squid Proxy
       run: |
-        wget https://github.com/ginuerzh/gost/releases/download/v3.0.0/gost-linux-amd64-3.0.0.gz
-        gunzip gost-linux-amd64-3.0.0.gz
-        chmod +x gost-linux-amd64-3.0.0
-        mv gost-linux-amd64-3.0.0 gost
+        sudo apt-get update
+        sudo apt-get install -y squid
+        sudo sed -i 's/http_port 3128/http_port 8080/' /etc/squid/squid.conf
+        sudo service squid restart
+
+    - name: Install Cloudflare Tunnel
+      run: |
         wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
         chmod +x cloudflared-linux-amd64
         mv cloudflared-linux-amd64 cloudflared
 
-    - name: Start Proxy and Cloudflare Tunnel
+    - name: Start Tunnel and Output Link
       run: |
-        ./gost -L http://:8080 > gost.log 2>&1 &
-        sleep 2
         ./cloudflared tunnel --url http://localhost:8080 > cf.log 2>&1 &
         sleep 10
-        echo "=========================================================="
+        echo "======================================================="
         echo "!!! VERDIX CLOUD PROXY IS READY !!!"
         grep -o 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' cf.log
-        echo "=========================================================="
+        echo "======================================================"
 
     - name: Keep Alive
       run: sleep 21000
