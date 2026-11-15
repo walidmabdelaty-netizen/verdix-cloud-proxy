@@ -1,0 +1,32 @@
+name: Verdix Cloud Internet (Proxy)
+on:
+  workflow_dispatch:
+
+jobs:
+  proxy-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+    - name: Install Proxy and Tunnel Tools
+      run: |
+        wget https://github.com/ginuerzh/gost/releases/download/v3.0.0/gost-linux-amd64-3.0.0.gz
+        gunzip gost-linux-amd64-3.0.0.gz
+        chmod +x gost-linux-amd64-3.0.0
+        mv gost-linux-amd64-3.0.0 gost
+        wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+        chmod +x cloudflared-linux-amd64
+        mv cloudflared-linux-amd64 cloudflared
+
+    - name: Start Proxy and Cloudflare Tunnel
+      run: |
+        ./gost -L http://:8080 > gost.log 2>&1 &
+        sleep 2
+        ./cloudflared tunnel --url http://localhost:8080 > cf.log 2>&1 &
+        sleep 10
+        echo "=========================================================="
+        echo "!!! VERDIX CLOUD PROXY IS READY !!!"
+        grep -o 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' cf.log
+        echo "=========================================================="
+
+    - name: Keep Alive
+      run: sleep 21000
