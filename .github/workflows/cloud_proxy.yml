@@ -1,44 +1,33 @@
-name: Verdix Cloud Internet (Proxy)
+name: Verdix Cloud Proxy
+
 on:
   workflow_dispatch:
-
-permissions:
-  issues: write
-  contents: read
 
 jobs:
   proxy-server:
     runs-on: ubuntu-latest
     timeout-minutes: 360
+
     steps:
-    - name: Install and Configure Squid Proxy
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y squid
-        sudo sed -i 's/http_port 3128/http_port 8080/' /etc/squid/squid.conf
-        sudo service squid restart
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    - name: Install Cloudflare Tunnel
-      run: |
-        wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
-        chmod +x cloudflared-linux-amd64
-        mv cloudflared-linux-amd64 cloudflared
+      - name: Install Squid
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y squid
 
-    - name: Start Tunnel and Output Link
-      run: |
-        ./cloudflared tunnel --url http://localhost:8080 > cf.log 2>&1 &
-        sleep 10
-        URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' cf.log)
-        echo "======================================================"
-        echo "!!! VERDIX CLOUD PROXY IS READY !!!"
-        echo "$URL"
-        echo "======================================================"
-        
-        curl -s -X POST -H "Accept: application/vnd.github+json" \
-          -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-          -H "X-GitHub-Api-Version: 2022-11-28" \
-          https://api.github.com/repos/${{ github.repository }}/issues \
-          -d "{\"title\":\"CLOUD_PROXY_URL\", \"body\":\"$URL\"}"
+      - name: Configure and Start Squid
+        run: |
+          sudo sed -i 's/http_port 3128/http_port 8080/' /etc/squid/squid.conf
+          sudo service squid restart
+          echo "Squid restarted on port 8080"
 
-    - name: Keep Alive
-      run: sleep 21000
+      - name: Start Tunnel and Keep Alive
+        run: |
+          # استخدام localhost.run بدون تفاعل (لأن بيئة جيت هب مفيش فيها مستخدم يكتب yes)
+          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R 80:localhost:8080 nokey@localhost.run > tunnel.log 2>&1 &
+          sleep 10
+          cat tunnel.log
+          # الحفاظ على التشغيل لمدة 6 ساعات
+          sleep 21000
